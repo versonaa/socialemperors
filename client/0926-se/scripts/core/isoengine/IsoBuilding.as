@@ -9,6 +9,7 @@ package core.isoengine
    import core.isoengine.events.ExtraEvent;
    import core.isoengine.events.IsoElementEvent;
    import core.statics.*;
+   import GUI.RecuadroInfo;
    import flash.display.MovieClip;
    import flash.events.Event;
    import flash.events.MouseEvent;
@@ -60,6 +61,8 @@ package core.isoengine
       public static const MAX_TRAINING_QUEUE:int = 5;
       
       public var trainingQueue:Array = [];
+      
+      private var trainingCurrent:Object = null;
       
       private var isGlowing:Boolean = false;
       
@@ -620,7 +623,7 @@ package core.isoengine
          var _loc5_:StaticData = null;
          var _loc8_:Array = null;
          var _loc9_:Array = null;
-         var _loc10_:Boolean = false;
+         var _loc10_:Object = null;
          var _loc6_:int = Base.Player.iPopulationCurrent;
          var _loc7_:int = Base.Player.iPopulationMax;
          _loc5_ = StaticDataLibrary.api.getItem(this.buildingReference.building.trains);
@@ -692,7 +695,12 @@ package core.isoengine
                               _loc9_.push(Constants.COST_XP);
                            }
                            Base.Main.ps.addParticle(new NumberParticle(x * Base.Main.currentZoom + parent.x,y * Base.Main.currentZoom + parent.y,_loc8_,_loc9_));
-                           _loc10_ = true;
+                           _loc10_ = {
+                              "cash":true,
+                              "cost":_loc4_,
+                              "type":CostType.CASH,
+                              "food":0
+                           };
                         }
                         else
                         {
@@ -706,7 +714,12 @@ package core.isoengine
                               _loc9_.push(Constants.COST_XP);
                            }
                            Base.Main.ps.addParticle(new NumberParticle(x * Base.Main.currentZoom + parent.x,y * Base.Main.currentZoom + parent.y,_loc8_,_loc9_));
-                           _loc10_ = false;
+                           _loc10_ = {
+                              "cash":false,
+                              "cost":_loc2_,
+                              "type":_loc5_.cost_type,
+                              "food":_loc3_
+                           };
                         }
                         if(this.bTrainingUnit)
                         {
@@ -715,14 +728,12 @@ package core.isoengine
                         }
                         else
                         {
-                           this.payedWithCash = _loc10_;
+                           this.trainingCurrent = _loc10_;
+                           this.payedWithCash = _loc10_.cash;
                            this.addProgressBar(Language.getLiteral(Language.AUX_ENTRENANDO),this.uiTrainingTime / 1000,this.OnTrainingTimer);
                            this.bTrainingUnit = true;
                         }
-                        if(this.pPortrait != null)
-                        {
-                           this.pPortrait.loadTrainableUnitInfo(this);
-                        }
+                        this.notifyTrainingChanged();
                         return true;
                      }
                      return false;
@@ -755,6 +766,7 @@ package core.isoengine
          var _loc4_:Number = NaN;
          var _loc5_:Object = null;
          this.bTrainingUnit = false;
+         this.trainingCurrent = null;
          if(this.buildingReference != null)
          {
             _loc5_ = Base.Iso.encontrarTileProximaLibre(this.buildingReference.tx,this.buildingReference.ty,true,true);
@@ -829,22 +841,69 @@ package core.isoengine
       
       private function startNextQueuedUnit() : void
       {
-         if(this.trainingQueue.length == 0)
+         if(this.trainingQueue.length > 0)
+         {
+            if(this.buildingReference == null || this.parent == null)
+            {
+               this.trainingQueue = [];
+            }
+            else
+            {
+               this.trainingCurrent = this.trainingQueue.shift();
+               this.payedWithCash = this.trainingCurrent.cash;
+               this.addProgressBar(Language.getLiteral(Language.AUX_ENTRENANDO),this.uiTrainingTime / 1000,this.OnTrainingTimer);
+               this.bTrainingUnit = true;
+               this.refreshTrainingQueueText();
+            }
+         }
+         this.notifyTrainingChanged();
+      }
+      
+      public function getTrainingCount() : int
+      {
+         return (this.bTrainingUnit ? 1 : 0) + this.trainingQueue.length;
+      }
+      
+      public function cancelLastTrainingUnit() : void
+      {
+         var _loc1_:Object = null;
+         if(Base.Main.tutorialMode)
          {
             return;
          }
-         if(this.buildingReference == null || this.parent == null)
+         if(this.trainingQueue.length > 0)
          {
-            this.trainingQueue = [];
+            _loc1_ = this.trainingQueue.pop();
+            this.refreshTrainingQueueText();
+         }
+         else if(this.bTrainingUnit && this.trainingCurrent != null)
+         {
+            _loc1_ = this.trainingCurrent;
+            this.trainingCurrent = null;
+            this.bTrainingUnit = false;
+            if(this.fauxBar != null)
+            {
+               this.fauxBar.destroy();
+               this.fauxBar = null;
+            }
+         }
+         if(_loc1_ == null)
+         {
             return;
          }
-         this.payedWithCash = this.trainingQueue.shift();
-         this.addProgressBar(Language.getLiteral(Language.AUX_ENTRENANDO),this.uiTrainingTime / 1000,this.OnTrainingTimer);
-         this.bTrainingUnit = true;
-         this.refreshTrainingQueueText();
-         if(this.pPortrait != null)
+         Base.Player.adjustStatByType(_loc1_.cost,_loc1_.type);
+         if(_loc1_.food > 0)
          {
-            this.pPortrait.loadTrainableUnitInfo(this);
+            Base.Player.adjustStatByType(_loc1_.food,CostType.FOOD);
+         }
+         this.notifyTrainingChanged();
+      }
+      
+      private function notifyTrainingChanged() : void
+      {
+         if(this.pPortrait is RecuadroInfo)
+         {
+            RecuadroInfo(this.pPortrait).refreshTrainingQueue();
          }
       }
       

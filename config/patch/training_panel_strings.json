@@ -1,0 +1,5 @@
+[
+	{ "op": "add", "path": "/localization_strings/-", "value": { "id": 1649, "name": "BARRACKS_TRAIN_BUTTON", "text": "Train" }},
+	{ "op": "add", "path": "/localization_strings/-", "value": { "id": 1650, "name": "BARRACKS_SPEED_UP", "text": "Speed up" }},
+	{ "op": "add", "path": "/localization_strings/-", "value": { "id": 3001, "name": "SE_TRAIN_WITH_CASH", "text": "Train with cash" }}
+]

@@ -29,6 +29,14 @@ package GUI
       
       public var extendedPortrait:MovieClip;
       
+      public static const LITERAL_TRAIN:int = 1649;
+      
+      public static const LITERAL_TRAIN_WITH_CASH:int = 3001;
+      
+      private var vQueueThumbs:Array = [];
+      
+      private var trainingPie:Sprite = null;
+      
       public var mcInhibidorClicks:MovieClip;
       
       public var vSpecialAttacks:Vector.<PortraitSpecialAttack>;
@@ -379,6 +387,14 @@ package GUI
       public function refreshLoadBar(param1:Number, param2:uint = 0) : void
       {
          var _loc3_:MovieClip = null;
+         if(this.extendedPortrait is EP_NewBarracksMC)
+         {
+            if(this.eElement is IsoBuilding && IsoBuilding(this.eElement).bTrainingUnit)
+            {
+               this.refreshTrainingTime(param1);
+            }
+            return;
+         }
          if(this.extendedPortrait != null && this.extendedPortrait.timeBar != null)
          {
             _loc3_ = this.extendedPortrait.timeBar;
@@ -1267,43 +1283,13 @@ package GUI
                         }
                         break;
                      case Constants.SUBCATFUNC_BUILDING_TOWNHALL:
-                        this.extendedPortrait = new EP_TOWNHALL_MC();
-                        this.ri.addChild(this.extendedPortrait);
-                        this.initBasicButtons();
-                        this.actualizarBarraVida();
-                        TextFieldUtil.setHTML(this.extendedPortrait.txNombre,_eElement.sName);
-                        TextFieldUtil.setHTML(this.extendedPortrait.mcAttack.txAttack,elementInfo.attack);
-                        TextFieldUtil.setHTML(this.extendedPortrait.mcDefense.txDefense,elementInfo.attack_interval);
-                        TextFieldUtil.setHTML(this.extendedPortrait.mcRange.txRange,elementInfo.attack_range);
-                        this.extendedPortrait.barraTiempo.visible = false;
-                        this.loadImage(elementInfo.img_name);
-                        this.loadTrainableUnitInfo(this.eElement);
-                        break;
                      case Constants.SUBCATFUNC_BUILDING_CASTLE:
                      case Constants.SUBCATFUNC_BUILDING_BARRACKS:
                      case Constants.SUBCATFUNC_BUILDING_ARCHERY:
                      case Constants.SUBCATFUNC_BUILDING_STABLE:
                      case Constants.SUBCATFUNC_BUILDING_WORKSHOP:
                      case Constants.SUBCATFUNC_BUILDING_CHURCH:
-                        this.extendedPortrait = new EP_BARRACKS_MC();
-                        this.ri.addChild(this.extendedPortrait);
-                        this.initBasicButtons();
-                        this.actualizarBarraVida();
-                        TextFieldUtil.setHTML(this.extendedPortrait.txNombre,_eElement.sName);
-                        TextFieldUtil.setHTML(this.extendedPortrait.mcAttack.txAttack,elementInfo.attack);
-                        TextFieldUtil.setHTML(this.extendedPortrait.mcDefense.txDefense,elementInfo.attack_interval);
-                        TextFieldUtil.setHTML(this.extendedPortrait.mcRange.txRange,elementInfo.attack_range);
-                        if(_eElement.buildingReference.building.subcat_functional == Constants.SUBCATFUNC_BUILDING_CASTLE)
-                        {
-                           this.extendedPortrait.mcRange.visible = true;
-                        }
-                        else
-                        {
-                           this.extendedPortrait.mcRange.visible = false;
-                        }
-                        this.loadImage(elementInfo.img_name);
-                        this.loadTrainableUnitInfo(this.eElement);
-                        this.extendedPortrait.barraTiempo.visible = false;
+                        this.initTrainingPortrait(_eElement,elementInfo);
                         break;
                      case Constants.SUBCATFUNC_BUILDING_MARKET:
                         this.extendedPortrait = new EP_Market_MC();
@@ -1969,6 +1955,240 @@ package GUI
             {
                this.extendedPortrait.mcAttack.txAttack.text = this.eElement.buildingReference.building.attack + (Base.Main.gameMode == Constants.GAME_MODE_ASSAULT ? IsoBuilding(this.eElement).buildingReference.loaded.units.length : IsoBuilding(this.eElement).vUnitsContained.length) * FortressDelegate.DMG_ARROW;
             }
+         }
+      }
+      
+      public function initTrainingPortrait(param1:IsoInteractiveElement, param2:StaticData) : void
+      {
+         this.extendedPortrait = new EP_NewBarracksMC();
+         this.ri.addChild(this.extendedPortrait);
+         // initBasicButtons expects the move, rotate and store buttons at the top level
+         this.extendedPortrait.btMove = this.extendedPortrait.menuTools.btMove;
+         this.extendedPortrait.btFlip = this.extendedPortrait.menuTools.btFlip;
+         this.extendedPortrait.btPutInStorage = this.extendedPortrait.menuTools.btPutInStorage;
+         this.initBasicButtons();
+         this.extendedPortrait.menuTools.visible = false;
+         this.extendedPortrait.btTools.visible = this.extendedPortrait.btMove.visible;
+         this.extendedPortrait.btTools.addEventListener(MouseEvent.MOUSE_DOWN,this.showHideTools);
+         this.actualizarBarraVida();
+         TextFieldUtil.setHTML(this.extendedPortrait.txNombre,param1.sName);
+         this.loadImage(param2.img_name);
+         this.loadTrainingUnitInfo(IsoBuilding(param1));
+         this.vQueueThumbs = [];
+         this.refreshTrainingQueue();
+      }
+      
+      private function loadTrainingUnitInfo(param1:IsoBuilding) : void
+      {
+         var _loc2_:StaticData = null;
+         var _loc3_:int = 0;
+         var _loc4_:int = 0;
+         var _loc5_:int = 0;
+         var _loc6_:Loader = null;
+         var _loc7_:MovieClip = this.extendedPortrait.trainUnit;
+         var _loc8_:MovieClip = this.extendedPortrait.speedup;
+         _loc2_ = StaticDataLibrary.api.getItem(param1.buildingReference.building.trains);
+         this.extendedPortrait.mcImageTrainable.thumb.addChild(ImageManager.instance.getThumbImage(_loc2_.img_name + ".jpg").getBitmap(64,64,1,ImageManagerResource.ONLY_ADJUST_SIZE));
+         this.trainingPie = new Sprite();
+         this.trainingPie.alpha = 0.8;
+         this.extendedPortrait.mcImageTrainable.thumb.addChild(this.trainingPie);
+         this.extendedPortrait.mcImageTrainable.addEventListener(MouseEvent.CLICK,this.trainUnit);
+         this.extendedPortrait.mcImageTrainable.buttonMode = true;
+         this.extendedPortrait.txRemaining.visible = false;
+         TextFieldUtil.setHTML(this.extendedPortrait.txTrainingUnit,_loc2_.name);
+         TextFieldUtil.setHTML(this.extendedPortrait.menu.mcVida.txVida,_loc2_.life);
+         TextFieldUtil.setHTML(this.extendedPortrait.menu.mcAttack.txAttack,_loc2_.attack);
+         TextFieldUtil.setHTML(this.extendedPortrait.menu.mcDefense.txDefense,_loc2_.attack_interval);
+         TextFieldUtil.setHTML(this.extendedPortrait.menu.mcSpeed.txSpeed,_loc2_.velocity);
+         TextFieldUtil.setHTML(this.extendedPortrait.menu.mcRange.txRange,_loc2_.attack_range);
+         TextFieldUtil.setHTML(this.extendedPortrait.menu.mcPop.txPop,_loc2_.population);
+         TextFieldUtil.setHTML(this.extendedPortrait.menu.txNombre,_loc2_.name);
+         TextFieldUtil.setHTML(this.extendedPortrait.menu.txtTitle,Language.getLiteral(Language.INFOPOPUP_TRAIN));
+         if(_loc2_.subcat_functional == Constants.SUBCATFUNC_UNIT_PEASANT)
+         {
+            _loc5_ = int(Config.VILLAGER_QUEUE[Base.Iso.getTownHallLevel()]);
+            TextFieldUtil.setHTML(this.extendedPortrait.menu.villagerExtraInfo.desc,Language.getLiteral(_loc5_ == 1 ? int(Language.INFO_LIMIT_RECOLECCION_SINGULAR) : int(Language.INFO_LIMIT_RECOLECCION_PLURAL),[_loc5_]));
+            this.extendedPortrait.menu.villagerExtraInfo.visible = true;
+         }
+         else
+         {
+            this.extendedPortrait.menu.villagerExtraInfo.visible = false;
+         }
+         this.extendedPortrait.menu.visible = false;
+         // Same prices UnitTrainingStart charges
+         _loc3_ = _loc2_.cost;
+         switch(_loc2_.subcat_functional)
+         {
+            case Constants.SUBCATFUNC_UNIT_ARCHER:
+            case Constants.SUBCATFUNC_UNIT_FOOTMAN:
+            case Constants.SUBCATFUNC_UNIT_MOUNTED:
+               if(Base.Iso.eBlacksmith != null)
+               {
+                  _loc3_ = Math.ceil(_loc3_ * Config.REDUCTION_MULTIPLIER_BLACKSMITH);
+               }
+               break;
+            case Constants.SUBCATFUNC_UNIT_SIEGE:
+               if(Base.Iso.eUniversity != null)
+               {
+                  _loc3_ = Math.ceil(_loc3_ * Config.REDUCTION_MULTIPLIER_UNIVERSITY);
+               }
+         }
+         _loc4_ = _loc2_.subcat_functional == Constants.SUBCATFUNC_UNIT_PEASANT ? 0 : int(Math.ceil(_loc3_ * Config.FOOD_PER_GOLD_INTRAINING));
+         TextFieldUtil.setHTML(_loc7_.txtTitle,Language.getLiteral(LITERAL_TRAIN));
+         TextFieldUtil.setHTML(_loc7_.cost,_loc3_ >= 10000 ? _loc3_ / 1000 + "k" : _loc3_);
+         TextFieldUtil.setHTML(_loc7_.costFood,_loc4_ >= 10000 ? _loc4_ / 1000 + "k" : _loc4_);
+         TextFieldUtil.setHTML(_loc7_.txCostTime,int(param1.uiTrainingTime / 1000) + "s");
+         _loc6_ = new Loader();
+         _loc6_.load(new URLRequest(Base.Main.apfx + "externalized/RecuadroInfo/clock.png"));
+         _loc7_.clock.addChild(_loc6_);
+         _loc7_.addEventListener(MouseEvent.MOUSE_OVER,this.overTrainUnitButton);
+         _loc7_.addEventListener(MouseEvent.MOUSE_OUT,this.outTrainUnitButton);
+         _loc7_.addEventListener(MouseEvent.CLICK,this.trainUnit);
+         _loc7_.buttonMode = true;
+         // The 1.1.5 speed up bar trains the unit with cash instead: training takes seconds here
+         TextFieldUtil.setHTML(_loc8_.txtSpeedUpTitle,Language.getLiteral(LITERAL_TRAIN_WITH_CASH));
+         TextFieldUtil.setHTML(_loc8_.txSpeedupCost,_loc2_.cost_unit_cash);
+         _loc8_.mouseChildren = false;
+         if(_loc2_.cost_unit_cash > 0)
+         {
+            _loc8_.addEventListener(MouseEvent.CLICK,this.trainUnitWithCash);
+            _loc8_.buttonMode = true;
+         }
+         else
+         {
+            _loc8_.alpha = 0.4;
+         }
+      }
+      
+      public function refreshTrainingQueue() : void
+      {
+         var _loc1_:IsoBuilding = null;
+         var _loc2_:StaticData = null;
+         var _loc3_:int = 0;
+         var _loc4_:MovieClip = null;
+         var _loc5_:DisplayObject = null;
+         if(!(this.extendedPortrait is EP_NewBarracksMC) || !(this.eElement is IsoBuilding))
+         {
+            return;
+         }
+         _loc1_ = IsoBuilding(this.eElement);
+         for each(_loc5_ in this.vQueueThumbs)
+         {
+            if(_loc5_.parent != null)
+            {
+               _loc5_.parent.removeChild(_loc5_);
+            }
+         }
+         this.vQueueThumbs = [];
+         _loc2_ = StaticDataLibrary.api.getItem(_loc1_.buildingReference.building.trains);
+         _loc3_ = 0;
+         while(_loc3_ < IsoBuilding.MAX_TRAINING_QUEUE)
+         {
+            _loc4_ = this.extendedPortrait["queuePortrait" + (_loc3_ + 1)];
+            _loc4_.removeEventListener(MouseEvent.CLICK,this.cancelTrainingUnit);
+            _loc4_.buttonMode = false;
+            if(_loc3_ < _loc1_.getTrainingCount())
+            {
+               _loc5_ = _loc4_.addChild(ImageManager.instance.getThumbImage(_loc2_.img_name + ".jpg").getBitmap(25,25,1,ImageManagerResource.ONLY_ADJUST_SIZE));
+               this.vQueueThumbs.push(_loc5_);
+               _loc4_.addEventListener(MouseEvent.CLICK,this.cancelTrainingUnit);
+               _loc4_.buttonMode = true;
+            }
+            _loc3_++;
+         }
+         if(!_loc1_.bTrainingUnit)
+         {
+            this.extendedPortrait.txRemaining.visible = false;
+            if(this.trainingPie != null)
+            {
+               this.trainingPie.graphics.clear();
+            }
+         }
+      }
+      
+      private function refreshTrainingTime(param1:Number) : void
+      {
+         var _loc2_:Number = 1 - Math.min(Math.max(param1,0),1);
+         var _loc3_:int = Math.ceil(_loc2_ * IsoBuilding(this.eElement).uiTrainingTime / 1000);
+         var _loc4_:String = "";
+         if(_loc3_ >= 3600)
+         {
+            _loc4_ += int(_loc3_ / 3600) + "h ";
+         }
+         if(_loc3_ >= 60)
+         {
+            _loc4_ += int(_loc3_ % 3600 / 60) + "\' ";
+         }
+         _loc4_ += _loc3_ % 60 + "\'\'";
+         TextFieldUtil.setHTML(this.extendedPortrait.txRemaining,_loc4_);
+         this.extendedPortrait.txRemaining.visible = true;
+         if(this.trainingPie != null)
+         {
+            this.drawPie(this.trainingPie.graphics,_loc2_,50,37,37,-Math.PI / 2);
+         }
+      }
+      
+      // From 1.1.5 EP_SelfBarracksBuilding.drawPieMask
+      private function drawPie(param1:Graphics, param2:Number, param3:Number, param4:Number, param5:Number, param6:Number, param7:int = 10) : void
+      {
+         var _loc8_:int = 0;
+         var _loc9_:int = 0;
+         var _loc10_:Number = NaN;
+         param1.clear();
+         param1.beginFill(6710886);
+         param1.moveTo(param4,param5);
+         param3 /= Math.cos(1 / param7 * Math.PI);
+         _loc8_ = Math.floor(param2 * param7);
+         _loc9_ = 0;
+         while(_loc9_ <= _loc8_)
+         {
+            _loc10_ = _loc9_ / param7 * (Math.PI * 2) + param6;
+            param1.lineTo(Math.cos(_loc10_) * param3 * -1 + param4,Math.sin(_loc10_) * param3 + param5);
+            _loc9_++;
+         }
+         if(param2 * param7 != _loc8_)
+         {
+            _loc10_ = param2 * (Math.PI * 2) + param6;
+            param1.lineTo(Math.cos(_loc10_) * param3 * -1 + param4,Math.sin(_loc10_) * param3 + param5);
+         }
+         param1.endFill();
+      }
+      
+      private function cancelTrainingUnit(param1:MouseEvent) : void
+      {
+         if(this.eElement is IsoBuilding)
+         {
+            IsoBuilding(this.eElement).cancelLastTrainingUnit();
+         }
+      }
+      
+      private function showHideTools(param1:MouseEvent) : void
+      {
+         if(this.extendedPortrait != null && this.extendedPortrait.menuTools != null)
+         {
+            this.extendedPortrait.menuTools.visible = !this.extendedPortrait.menuTools.visible;
+         }
+      }
+      
+      private function overTrainUnitButton(param1:Event) : void
+      {
+         if(this.extendedPortrait != null)
+         {
+            this.extendedPortrait.trainUnit.scaleX = this.extendedPortrait.trainUnit.scaleY = 1.05;
+            --this.extendedPortrait.trainUnit.x;
+            --this.extendedPortrait.trainUnit.y;
+            this.extendedPortrait.menu.visible = true;
+         }
+      }
+      
+      private function outTrainUnitButton(param1:Event) : void
+      {
+         if(this.extendedPortrait != null)
+         {
+            this.extendedPortrait.trainUnit.scaleX = this.extendedPortrait.trainUnit.scaleY = 1;
+            this.extendedPortrait.trainUnit.x += 1;
+            this.extendedPortrait.trainUnit.y += 1;
+            this.extendedPortrait.menu.visible = false;
          }
       }
       
