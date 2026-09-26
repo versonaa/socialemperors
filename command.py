@@ -712,6 +712,24 @@ def do_command(USERID, cmd, args):
         save["maps"][town_id].setdefault("currentQuestVars", {})[key] = json.loads(value)
         print("Chapter state", key, "=", value)
 
+    elif cmd == Constant.CMD_SET_SKIN:
+        # Weather: the map theme (0 grassland, then desert, steppe, mountain, jungle, clouds)
+        town_id = int(args[0])
+        skin = int(args[1])
+        save["maps"][town_id]["skin"] = skin
+        print("Weather set to", skin)
+
+    elif cmd == Constant.CMD_UNLOCK_SKIN:
+        skin = str(args[0])
+        price = int(get_game_config()["globals"]["COST_UNLOCK_SKIN"])
+        unlocked = save["privateState"].get("unlockedSkins")
+        if not isinstance(unlocked, dict):
+            unlocked = save["privateState"]["unlockedSkins"] = {}
+        if unlocked.get(skin) != "true":
+            unlocked[skin] = "true" # the client compares with the string "true"
+            save["playerInfo"]["cash"] = max(save["playerInfo"]["cash"] - price, 0)
+        print("Weather", skin, "unlocked")
+
     elif cmd == Constant.CMD_TIME_MACHINE_BUY:
         packet = int(args[0])
         time_machine = get_game_config()["globals"]["TIME_MACHINE"]
