@@ -96,6 +96,9 @@ def load_saved_villages():
 
 # New village
 
+def initial_village() -> dict:
+    return copy.deepcopy(__initial_village)
+
 def new_village() -> str:
     # Generate USERID
     USERID: str = str(uuid.uuid4())

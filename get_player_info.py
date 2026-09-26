@@ -5,6 +5,9 @@ def get_player_info(USERID):
     # Update last logged in
     ts_now = timestamp_now()
     session(USERID)["playerInfo"]["last_logged_in"] = ts_now
+    # Towns and their race, for the town selector (TownManager.hasSecondTown)
+    if "maps" not in session(USERID)["privateState"]:
+        session(USERID)["privateState"]["maps"] = [{"r": town["race"]} for town in session(USERID)["maps"]]
     # player
     player_info = {
         "result": "ok",
