@@ -45,3 +45,6 @@ Based on 0.9.26b (`SocialEmpires0926bsec.swf`), built as
 - **Unit collections count**: buying a unit from the Collections menu counts
   it right away (0.9.26b only counted it after a reload).
   `popups/PopupAllUnits.as`
+- **Sell all from storage**: selling an item with more than one copy asks
+  whether to sell all of them (Yes) or only one (No). Cash items still ask
+  to confirm selling for 0 cash. `GUI/GiftButtonLarge.as`, `GUI/GiftWindow.as`

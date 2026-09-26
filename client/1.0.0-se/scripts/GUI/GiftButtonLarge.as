@@ -23,6 +23,8 @@ package GUI
       
       private var item:StoreObject;
       
+      private var group:Array;
+      
       private var avatar:Loader = new Loader();
       
       private var itemWindow:*;
@@ -33,9 +35,11 @@ package GUI
       
       public var popupWindow:* = null;
       
-      public function GiftButtonLarge(param1:*, param2:StoreObject, param3:int = 0, param4:int = 0, param5:int = 0)
+      public function GiftButtonLarge(param1:*, param2:StoreObject, param3:int = 0, param4:int = 0, param5:int = 0, param6:Array = null)
       {
          super();
+         // Every stored object this card stands for (the storage groups them by item id)
+         this.group = param6 != null ? param6.concat() : [param2];
          this.itemWindow = param1;
          x = param3;
          y = param4;
@@ -142,31 +146,89 @@ package GUI
       
       private function sellGiftReally() : void
       {
-         if(this.item.giftId)
+         this.sellObject(this.item);
+      }
+      
+      private function sellObject(param1:StoreObject) : void
+      {
+         if(param1.giftId)
          {
             Base.Commands.addCommand({
                "cmd":Constants.CMD_SELL_GIFT,
-               "args":[this.item.staticData.id,Base.Main.townID]
+               "args":[param1.staticData.id,Base.Main.townID]
             });
          }
-         else if(this.item.iphoneId)
+         else if(param1.iphoneId)
          {
             Base.Commands.addCommand({
                "cmd":Constants.CMD_SELL_IPHONE_ITEM,
-               "args":[this.item.staticData.id,Base.Main.townID]
+               "args":[param1.staticData.id,Base.Main.townID]
             });
          }
          else
          {
             Base.Commands.addCommand({
                "cmd":Constants.CMD_SELL_STORED,
-               "args":[this.item.staticData.id,Base.Main.townID]
+               "args":[param1.staticData.id,Base.Main.townID]
             });
          }
-         Base.Main.removeGift(this.item);
+         Base.Main.removeGift(param1);
+      }
+      
+      private function sellsForCash() : Boolean
+      {
+         return Config.SELL_FOR_ZERO_CASH && this.item.staticData.cost_type == CostType.CASH;
+      }
+      
+      private function sellRefund() : int
+      {
+         if(this.sellsForCash() || this.item.staticData.id == Constants.ID_BUILDING_ZEPPELIN_TOWER || this.item.staticData.id == Constants.ID_BUILDING_DOCK)
+         {
+            return 0;
+         }
+         return Math.floor(this.item.staticData.cost / Config.DIVISOR_SELL);
+      }
+      
+      private function sellAll() : void
+      {
+         if(this.sellsForCash())
+         {
+            Base.PopUp.confirm(Language.getLiteral(Language.INFO_CONFIRMAR_VENTA,[0,"cash"]),this.sellAllReally,null);
+         }
+         else
+         {
+            this.sellAllReally();
+         }
+      }
+      
+      private function sellAllReally() : void
+      {
+         var _loc1_:StoreObject = null;
+         var _loc2_:int = this.sellRefund() * this.group.length;
+         if(_loc2_ > 0)
+         {
+            Base.Player.adjustStatByType(_loc2_,this.item.staticData.cost_type,0);
+            Base.Main.ps.addParticle(new NumberParticle(355,450,[_loc2_],[this.item.staticData.cost_type],2));
+         }
+         for each(_loc1_ in this.group)
+         {
+            this.sellObject(_loc1_);
+         }
       }
       
       private function sellGift(... rest) : *
+      {
+         if(this.group.length > 1)
+         {
+            Base.PopUp.confirm("Sell all " + this.group.length + " " + this.item.staticData.name + "?<br>Yes: sell all<br>No: sell only 1",this.sellAll,this.sellOne);
+         }
+         else
+         {
+            this.sellOne();
+         }
+      }
+      
+      private function sellOne(... rest) : *
       {
          if(Config.SELL_FOR_ZERO_CASH && this.item.staticData.cost_type == CostType.CASH)
          {

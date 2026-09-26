@@ -197,7 +197,7 @@ package GUI
          var _loc2_:int = 0;
          while(_loc1_ < this.startItem + this.maxButtons && _loc1_ < this.sortedGifts.length)
          {
-            this.buttons.push(this.addChild(new GiftButtonLarge(this,this.sortedGifts[_loc1_][0],30 + this.buttonsOffsetX * (_loc1_ % this.numCols),-20 + Math.floor(_loc2_ / this.numCols) * this.buttonsOffsetY,this.sortedGifts[_loc1_].length)));
+            this.buttons.push(this.addChild(new GiftButtonLarge(this,this.sortedGifts[_loc1_][0],30 + this.buttonsOffsetX * (_loc1_ % this.numCols),-20 + Math.floor(_loc2_ / this.numCols) * this.buttonsOffsetY,this.sortedGifts[_loc1_].length,this.sortedGifts[_loc1_])));
             _loc1_++;
             _loc2_++;
          }
