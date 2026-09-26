@@ -48,3 +48,8 @@ Based on 0.9.26b (`SocialEmpires0926bsec.swf`), built as
 - **Sell all from storage**: selling an item with more than one copy asks
   whether to sell all of them (Yes) or only one (No). Cash items still ask
   to confirm selling for 0 cash. `GUI/GiftButtonLarge.as`, `GUI/GiftWindow.as`
+- **Keyboard shortcuts**: Tab / Shift+Tab select the next / previous unit
+  among the special units shown above the panel (wrapping around), 1-4 use
+  the selected unit's skills and R its limit. Tab no longer moves the focus
+  between buttons. Shortcuts are off while typing in a text field.
+  `GUI/RecuadroInfo.as`

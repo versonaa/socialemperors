@@ -9,6 +9,9 @@ package GUI
    import flash.events.*;
    import flash.geom.*;
    import flash.net.*;
+   import flash.text.TextField;
+   import flash.text.TextFieldType;
+   import flash.ui.Keyboard;
    import managers.ImageManager;
    import managers.SoundManager;
    import managers.images.ImageManagerResource;
@@ -54,6 +57,122 @@ package GUI
          this.mcInhibidorClicks = null;
          this.vSpecialAttacks = null;
          this.initPortraits();
+         if(this.ri.stage != null)
+         {
+            this.installShortcuts();
+         }
+         else
+         {
+            this.ri.addEventListener(Event.ADDED_TO_STAGE,this.installShortcuts);
+         }
+      }
+      
+      // Keyboard shortcuts: Tab / Shift+Tab cycle through the units shown above the
+      // panel, 1-4 use the selected unit's skills and R its limit.
+      private function installShortcuts(param1:Event = null) : void
+      {
+         this.ri.removeEventListener(Event.ADDED_TO_STAGE,this.installShortcuts);
+         this.ri.stage.addEventListener(KeyboardEvent.KEY_DOWN,this.onShortcutKey);
+         // Tab would otherwise move the focus through the buttons, like in a web page
+         this.ri.stage.addEventListener(FocusEvent.KEY_FOCUS_CHANGE,this.onKeyFocusChange);
+      }
+      
+      private function onKeyFocusChange(param1:FocusEvent) : void
+      {
+         if(param1.keyCode == Keyboard.TAB && !this.isTyping())
+         {
+            param1.preventDefault();
+         }
+      }
+      
+      private function isTyping() : Boolean
+      {
+         var _loc1_:TextField = this.ri.stage.focus as TextField;
+         return _loc1_ != null && _loc1_.type == TextFieldType.INPUT;
+      }
+      
+      private function onShortcutKey(param1:KeyboardEvent) : void
+      {
+         if(this.isTyping() || Base.PopUp.confirmWindow != null)
+         {
+            return;
+         }
+         switch(param1.keyCode)
+         {
+            case Keyboard.TAB:
+               this.focusNextSpecialUnit(param1.shiftKey ? -1 : 1);
+               break;
+            case 49:
+            case 50:
+            case 51:
+            case 52:
+               this.useSpecialAttack(param1.keyCode - 49);
+               break;
+            case 97:
+            case 98:
+            case 99:
+            case 100:
+               this.useSpecialAttack(param1.keyCode - 97);
+               break;
+            case 82:
+               this.useLimitAttack();
+         }
+      }
+      
+      private function focusNextSpecialUnit(param1:int) : void
+      {
+         var _loc2_:int = 0;
+         var _loc3_:int = -1;
+         if(this.vPortraitSpecialUnits == null || this.vPortraitSpecialUnits.length == 0)
+         {
+            return;
+         }
+         if(this.vSelectedElements != null && this.vSelectedElements.length == 1)
+         {
+            _loc2_ = 0;
+            while(_loc2_ < this.vPortraitSpecialUnits.length)
+            {
+               if(this.vPortraitSpecialUnits[_loc2_].GetElement() == this.vSelectedElements[0])
+               {
+                  _loc3_ = _loc2_;
+               }
+               _loc2_++;
+            }
+         }
+         if(_loc3_ == -1)
+         {
+            _loc3_ = param1 > 0 ? 0 : int(this.vPortraitSpecialUnits.length - 1);
+         }
+         else
+         {
+            _loc3_ = (_loc3_ + param1 + this.vPortraitSpecialUnits.length) % this.vPortraitSpecialUnits.length;
+         }
+         this.vPortraitSpecialUnits[_loc3_].clickItem(null);
+      }
+      
+      private function useSpecialAttack(param1:int) : void
+      {
+         if(this.vSpecialAttacks != null && param1 < this.vSpecialAttacks.length && this.vSpecialAttacks[param1] != null && !(this.vSpecialAttacks[param1] is PortraitLimitAttack))
+         {
+            this.vSpecialAttacks[param1].clickItem(null);
+         }
+      }
+      
+      private function useLimitAttack() : void
+      {
+         var _loc1_:PortraitSpecialAttack = null;
+         if(this.vSpecialAttacks == null)
+         {
+            return;
+         }
+         for each(_loc1_ in this.vSpecialAttacks)
+         {
+            if(_loc1_ is PortraitLimitAttack)
+            {
+               _loc1_.clickItem(null);
+               return;
+            }
+         }
       }
       
       public function refreshElementInRecuadro(param1:IsoInteractiveElement) : Boolean
