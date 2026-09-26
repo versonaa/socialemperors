@@ -1,3 +1,6 @@
+WHY I DID I GET BANNED ON SERVER 😭
+
+
 ![Social Empires](templates/img/logo.png "Social Empires logo")
 
 The Social Empires preservation project by the Social Emperors team.
