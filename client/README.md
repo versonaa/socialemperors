@@ -53,3 +53,8 @@ Based on 0.9.26b (`SocialEmpires0926bsec.swf`), built as
   the selected unit's skills and R its limit. Tab no longer moves the focus
   between buttons. Shortcuts are off while typing in a text field.
   `GUI/RecuadroInfo.as`
+- **Skill overlays**: the selected special unit gets a white border in the
+  row above the panel, skills show their shortcut (1-4, R) in the bottom
+  left corner, and the seconds left until the unit can use a skill again
+  while it is casting or cooling down. `GUI/PortraitSpecialAttack.as`,
+  `GUI/RecuadroInfo.as`

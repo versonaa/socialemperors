@@ -150,6 +150,37 @@ package GUI
          this.vPortraitSpecialUnits[_loc3_].clickItem(null);
       }
       
+      // White border around the special unit that is selected
+      public function updateSpecialUnitFocus() : void
+      {
+         var _loc1_:Portrait = null;
+         var _loc2_:Shape = null;
+         var _loc3_:IsoInteractiveElement = this.vSelectedElements != null && this.vSelectedElements.length == 1 ? this.vSelectedElements[0] : null;
+         if(this.vPortraitSpecialUnits == null)
+         {
+            return;
+         }
+         for each(_loc1_ in this.vPortraitSpecialUnits)
+         {
+            _loc2_ = _loc1_.getChildByName("focusBorder") as Shape;
+            if(_loc3_ != null && _loc1_.GetElement() == _loc3_)
+            {
+               if(_loc2_ == null)
+               {
+                  _loc2_ = new Shape();
+                  _loc2_.name = "focusBorder";
+                  _loc2_.graphics.lineStyle(3,16777215);
+                  _loc2_.graphics.drawRoundRect(-1,-1,_loc1_.portraitMC.width + 2,_loc1_.portraitMC.height + 2,10,10);
+                  _loc1_.addChild(_loc2_);
+               }
+            }
+            else if(_loc2_ != null)
+            {
+               _loc1_.removeChild(_loc2_);
+            }
+         }
+      }
+      
       private function useSpecialAttack(param1:int) : void
       {
          if(this.vSpecialAttacks != null && param1 < this.vSpecialAttacks.length && this.vSpecialAttacks[param1] != null && !(this.vSpecialAttacks[param1] is PortraitLimitAttack))
@@ -220,10 +251,12 @@ package GUI
                if(_loc5_ >= 4)
                {
                   this.vSpecialAttacks[_loc5_] = new PortraitLimitAttack(SpecialUnitAttack(_loc4_[_loc5_]),param1);
+                  this.vSpecialAttacks[_loc5_].setKeyLabel("R");
                }
                else
                {
                   this.vSpecialAttacks[_loc5_] = new PortraitSpecialAttack(SpecialUnitAttack(_loc4_[_loc5_]),param1);
+                  this.vSpecialAttacks[_loc5_].setKeyLabel(String(_loc5_ + 1));
                }
             }
             else
@@ -375,6 +408,7 @@ package GUI
                this.ri.addChild(this.vPortraitSpecialUnits[_loc2_]);
                _loc2_--;
             }
+            this.updateSpecialUnitFocus();
          }
       }
       
@@ -576,6 +610,7 @@ package GUI
             this.vPortraits[_loc2_].Refresh();
             _loc2_++;
          }
+         this.updateSpecialUnitFocus();
          if(this.vSelectedElements.length == 1)
          {
             Base.Main.selectedItem = this.vSelectedElements[0].buildingReference;

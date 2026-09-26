@@ -9,6 +9,9 @@ package GUI
    import flash.events.*;
    import flash.filters.*;
    import flash.net.*;
+   import flash.text.TextField;
+   import flash.text.TextFieldAutoSize;
+   import flash.text.TextFormat;
    import flash.utils.Timer;
    import managers.ImageManager;
    import managers.images.ImageManagerResource;
@@ -29,6 +32,13 @@ package GUI
       
       protected var bEnabled:Boolean;
       
+      // Overlays: the keyboard shortcut (bottom left) and the seconds left until the skill is ready
+      protected var keyLabel:TextField;
+      
+      protected var cooldownLabel:TextField;
+      
+      protected var labelTimer:Timer;
+      
       public function PortraitSpecialAttack(param1:SpecialUnitAttack, param2:IsoSpecialUnit, param3:PortraitMC = null)
       {
          super();
@@ -48,6 +58,13 @@ package GUI
          this.castingMask.alpha = 0.9;
          this.numAttacks = this.oAttack.numAttacks;
          this.bEnabled = true;
+         this.keyLabel = this.portraitMC.addChild(this.makeLabel(13)) as TextField;
+         this.cooldownLabel = this.portraitMC.addChild(this.makeLabel(18)) as TextField;
+         this.cooldownLabel.visible = false;
+         this.labelTimer = new Timer(250);
+         this.labelTimer.addEventListener(TimerEvent.TIMER,this.updateCooldownLabel);
+         addEventListener(Event.ADDED_TO_STAGE,this.onLabelsAdded);
+         addEventListener(Event.REMOVED_FROM_STAGE,this.onLabelsRemoved);
          this.updateAttacks();
          if(this.eElement is IsoSpecialUnit && IsoSpecialUnit(this.eElement).spState != IsoSpecialUnit.SU_STATE_IDLE)
          {
@@ -87,6 +104,70 @@ package GUI
       override public function GetElement() : IsoInteractiveElement
       {
          return this.eElement;
+      }
+      
+      private function makeLabel(param1:int) : TextField
+      {
+         var _loc2_:TextField = new TextField();
+         _loc2_.defaultTextFormat = new TextFormat("Arial",param1,16777215,true);
+         _loc2_.autoSize = TextFieldAutoSize.LEFT;
+         _loc2_.selectable = false;
+         _loc2_.mouseEnabled = false;
+         _loc2_.filters = [new GlowFilter(0,1,3,3,6)];
+         return _loc2_;
+      }
+      
+      private function frameWidth() : Number
+      {
+         return this.portraitMC.marco != null ? Number(this.portraitMC.marco.width) : 52;
+      }
+      
+      private function frameHeight() : Number
+      {
+         return this.portraitMC.marco != null ? Number(this.portraitMC.marco.height) : 52;
+      }
+      
+      public function setKeyLabel(param1:String) : void
+      {
+         this.keyLabel.text = param1;
+         this.keyLabel.x = 1;
+         this.keyLabel.y = this.frameHeight() - this.keyLabel.height;
+      }
+      
+      private function onLabelsAdded(param1:Event) : void
+      {
+         this.labelTimer.start();
+         this.updateCooldownLabel();
+      }
+      
+      private function onLabelsRemoved(param1:Event) : void
+      {
+         this.labelTimer.stop();
+      }
+      
+      // Seconds until the unit can use a skill again: casting time left plus the cooldown, or the cooldown left
+      private function updateCooldownLabel(param1:TimerEvent = null) : void
+      {
+         var _loc2_:int = 0;
+         var _loc3_:IsoSpecialUnit = this.eElement as IsoSpecialUnit;
+         if(_loc3_ != null && !(this is PortraitLimitAttack))
+         {
+            if(_loc3_.spState == IsoSpecialUnit.SU_STATE_CASTING && _loc3_.spActAttack != null)
+            {
+               _loc2_ = _loc3_.spTimer + int(_loc3_.spActAttack.coolDown);
+            }
+            else if(_loc3_.spState == IsoSpecialUnit.SU_STATE_COOLDOWN)
+            {
+               _loc2_ = _loc3_.spTimer;
+            }
+         }
+         this.cooldownLabel.visible = _loc2_ > 0;
+         if(_loc2_ > 0)
+         {
+            this.cooldownLabel.text = _loc2_ >= 60 ? int(_loc2_ / 60) + ":" + (_loc2_ % 60 < 10 ? "0" : "") + _loc2_ % 60 : String(_loc2_);
+            this.cooldownLabel.x = (this.frameWidth() - this.cooldownLabel.width) / 2;
+            this.cooldownLabel.y = (this.frameHeight() - this.cooldownLabel.height) / 2;
+         }
       }
       
       public function startCastingMask(param1:int, param2:int) : void
