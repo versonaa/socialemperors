@@ -56,6 +56,20 @@ def add_bought_unit(save: dict, item_id: int) -> None:
     if item_id not in bought:
         bought.append(item_id)
 
+def give_pack_resources(save: dict, map: dict, pack: dict, with_xp: bool) -> None:
+    # Resources of an offer pack (PromotionPacks.buyPack / buySuperPack)
+    map["coins"] += int(pack.get("gold", 0))
+    map["stone"] += int(pack.get("stone", 0))
+    map["food"] += int(pack.get("food", 0))
+    map["wood"] += int(pack.get("wood", 0))
+    if with_xp:
+        map["xp"] += int(pack.get("xp", 0))
+    save["privateState"]["mana"] = save["privateState"].get("mana", 0) + int(pack.get("mana", 0))
+
+def get_offer_pack(pack_id: int) -> dict:
+    packs = get_game_config()["offer_packs"]
+    return packs[int(pack_id) - 1] if 0 < int(pack_id) <= len(packs) else None
+
 def get_magic(magic_id: int) -> dict:
     for magic in get_game_config()["magics"]:
         if int(magic["id"]) == int(magic_id):
@@ -620,23 +634,109 @@ def do_command(USERID, cmd, args):
 
     elif cmd == Constant.CMD_BUY_SUPER_OFFER_PACK:
         town_id = args[0]
-        unknown2 = args[1] # this is probably the super offer pack ID?
+        pack_id = args[1]
         items = args[2]
         cash_used = args[3]
         
         map = save["maps"][town_id]
 
-        item_array = items.split(',')
-        for item in item_array:
-            item_id = int(item)
-            length = len(save["privateState"]["gifts"])
-            if length <= item_id:
-                for i in range(item_id - length + 1):
-                    save["privateState"]["gifts"].append(0)
-            save["privateState"]["gifts"][item_id] += 1
+        # The client puts the prizes in its storage (not gifts) and adds the pack resources, without xp
+        for item in items.split(','):
+            add_to_store(map, int(item))
+            add_bought_unit(save, int(item))
+        pack = get_offer_pack(pack_id)
+        if pack:
+            give_pack_resources(save, map, pack, with_xp=False)
 
         save["playerInfo"]["cash"] = max(save["playerInfo"]["cash"] - cash_used, 0)#maybe make function for editing resources
         print(f"Used {cash_used} cash to buy super offer pack!")
+
+    elif cmd == Constant.CMD_BUY_OFFER_PACK:
+        town_id = args[0]
+        pack_id = args[1]
+        random_item = args[2] if len(args) > 2 else None # random packs send the item that came out
+        pack = get_offer_pack(pack_id)
+        print("Buy offer pack", pack_id)
+        map = save["maps"][town_id]
+        save["playerInfo"]["cash"] = max(save["playerInfo"]["cash"] - int(pack["cost_cash"]), 0)
+        give_pack_resources(save, map, pack, with_xp=True)
+        items = [random_item] if random_item is not None else (pack.get("items") or [])
+        for item_id in items:
+            add_to_store(map, int(item_id))
+            add_bought_unit(save, int(item_id))
+
+    elif cmd == Constant.CMD_BUY_MANA:
+        town_id = args[0]
+        with_cash = args[1] == 1
+        globals = get_game_config()["globals"]
+        print("Buy mana", "with cash" if with_cash else "with gold")
+        if with_cash:
+            save["playerInfo"]["cash"] = max(save["playerInfo"]["cash"] - int(globals["COST_MANA_CASH"]), 0)
+        else:
+            save["maps"][town_id]["coins"] = max(save["maps"][town_id]["coins"] - int(globals["COST_MANA_GOLD"]), 0)
+        save["privateState"]["mana"] = save["privateState"].get("mana", 0) + int(globals["MANA_PER_PURCHASE"])
+
+    elif cmd == Constant.CMD_COLLECT_TREASURE:
+        # Chapter (quest in map) finished: rewards and the next chapter
+        gold, xp, next_chapter, food, stone, town_id = args[:6]
+        print("Chapter finished, next chapter", next_chapter)
+        map = save["maps"][town_id]
+        map["coins"] += gold
+        map["xp"] += xp
+        map["food"] += food
+        map["stone"] += stone
+        map["idCurrentTreasure"] = next_chapter
+        if gold or xp:
+            map["timestampLastTreasure"] = timestamp_now() # countdown to the next chapter
+        # MapInitializer sends 0 rewards when it only skips a chapter that does not apply
+
+    elif cmd == Constant.CMD_SET_QUEST_VAR:
+        # Progress inside the current chapter (spawned, activators, boss, treasure)
+        town_id, key, value = args[:3]
+        save["maps"][town_id].setdefault("currentQuestVars", {})[key] = json.loads(value)
+        print("Chapter state", key, "=", value)
+
+    elif cmd == Constant.CMD_ADD_UNIT_WAREHOUSE:
+        x, y, town_id, unit_id = args[:4]
+        print("Unit", str(get_name_from_item_id(unit_id)), "to the warehouse")
+        map = save["maps"][town_id]
+        for item in map["items"]:
+            if item[0] == unit_id and item[1] == x and item[2] == y:
+                map["items"].remove(item)
+                break
+        else:
+            remove_units(map, unit_id, 1) # position not up to date
+        # map.warehousedUnits: {"unit_id": count}
+        warehoused = map.setdefault("warehousedUnits", {})
+        warehoused[str(unit_id)] = warehoused.get(str(unit_id), 0) + 1
+
+    elif cmd == Constant.CMD_PLACE_WAREHOUSED_ITEM:
+        unit_id, x, y, frame, town_id = args[:5]
+        print("Unit", str(get_name_from_item_id(unit_id)), "out of the warehouse")
+        map = save["maps"][town_id]
+        warehoused = map.setdefault("warehousedUnits", {})
+        if warehoused.get(str(unit_id), 0) > 0:
+            warehoused[str(unit_id)] -= 1
+            if warehoused[str(unit_id)] == 0:
+                del warehoused[str(unit_id)]
+        map["items"] += [[unit_id, x, y, frame, timestamp_now(), 0]]
+
+    elif cmd == Constant.CMD_BUY_WAREHOUSE_CAPACITY_NEW:
+        town_id = args[0]
+        price = int(get_game_config()["globals"]["WAREHOUSE_CAPACITY_INCREASE_PRICE_SINGLE"])
+        map = save["maps"][town_id]
+        map["warehouseAditionalCapacitySingle"] = int(map.get("warehouseAditionalCapacitySingle", 0)) + 1
+        save["playerInfo"]["cash"] = max(save["playerInfo"]["cash"] - price, 0)
+        print("Warehouse slots:", map["warehouseAditionalCapacitySingle"])
+
+    elif cmd == Constant.CMD_RESET_WAREHOUSE:
+        # The warehouse was stored: its units go to the storage, the bought slots stay
+        town_id = args[0]
+        map = save["maps"][town_id]
+        for unit_id, count in map.get("warehousedUnits", {}).items():
+            add_to_store(map, int(unit_id), int(count))
+        map["warehousedUnits"] = {}
+        print("Warehouse emptied into storage")
 
     elif cmd == Constant.CMD_SET_STRATEGY:
         strategy_type = args[0]
@@ -668,8 +768,16 @@ def do_command(USERID, cmd, args):
         save["maps"][town_id]["xp"] += int(xp_gained)
 
         # Update quests data
-        save["privateState"]["unlockedQuestIndex"] = max(quest_id + 1, save["privateState"]["unlockedQuestIndex"], 0)
-        # save["privateState"]["questsRank"] = TODO 
+        # Stars: the highest difficulty won. The next island in ISLE_ORDER is unlocked.
+        pState = save["privateState"]
+        if win:
+            ranks = pState.get("questsRank")
+            if not isinstance(ranks, dict):
+                ranks = pState["questsRank"] = {}
+            ranks[str(quest_id)] = max(int(ranks.get(str(quest_id), 0)), int(difficulty))
+            isle_order = [str(i) for i in get_game_config()["globals"]["ISLE_ORDER"]]
+            if str(quest_id) in isle_order:
+                pState["unlockedQuestIndex"] = max(isle_order.index(str(quest_id)) + 1, int(pState.get("unlockedQuestIndex", 0)))
         # save["maps"]["questTimes"] [quest_id] = TODO min (... , duration_sec)
         # save["maps"]["lastQuestTimes"] [quest_id] = TODO min (... , duration_sec)
 
