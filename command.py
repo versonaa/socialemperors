@@ -70,6 +70,22 @@ def get_offer_pack(pack_id: int) -> dict:
     packs = get_game_config()["offer_packs"]
     return packs[int(pack_id) - 1] if 0 < int(pack_id) <= len(packs) else None
 
+def time_forward(save: dict, seconds: int) -> None:
+    # Time machine: move every saved timer back, as if that time had passed.
+    # Values <= 0 mean "no timer" and are left alone.
+    def back(value):
+        return value - seconds if isinstance(value, (int, float)) and value > 0 else value
+    for map in save["maps"]:
+        map["timestampLastTreasure"] = back(map.get("timestampLastTreasure", 0)) # next chapter
+        for item in map["items"]:
+            if len(item) > 4:
+                item[4] = back(item[4]) # collected_at: buildings' production
+    pState = save["privateState"]
+    for key in ("timeStampTakeCare", "timeStampTakeCareMonster", "riderTimeStamp", "timestampLastBonus"):
+        if key in pState:
+            pState[key] = back(pState[key])
+    pState["survivalVidaTimeStamp"] = [back(ts) for ts in pState.get("survivalVidaTimeStamp", [])]
+
 def get_magic(magic_id: int) -> dict:
     for magic in get_game_config()["magics"]:
         if int(magic["id"]) == int(magic_id):
@@ -695,6 +711,25 @@ def do_command(USERID, cmd, args):
         town_id, key, value = args[:3]
         save["maps"][town_id].setdefault("currentQuestVars", {})[key] = json.loads(value)
         print("Chapter state", key, "=", value)
+
+    elif cmd == Constant.CMD_TIME_MACHINE_BUY:
+        packet = int(args[0])
+        time_machine = get_game_config()["globals"]["TIME_MACHINE"]
+        print("Buy time packet", time_machine[packet]["hours"], "hours")
+        counts = save["privateState"].setdefault("countTimePacket", [])
+        while len(counts) <= packet:
+            counts.append(0)
+        counts[packet] += 1
+        save["playerInfo"]["cash"] = max(save["playerInfo"]["cash"] - int(time_machine[packet]["price"]), 0)
+
+    elif cmd == Constant.CMD_TIME_MACHINE_USE:
+        packet = int(args[0])
+        hours = float(get_game_config()["globals"]["TIME_MACHINE"][packet]["hours"])
+        counts = save["privateState"].setdefault("countTimePacket", [])
+        if packet < len(counts) and counts[packet] > 0:
+            counts[packet] -= 1
+        time_forward(save, int(hours * 3600))
+        print(f"Time machine: {hours} hours forward")
 
     elif cmd == Constant.CMD_ADD_UNIT_WAREHOUSE:
         x, y, town_id, unit_id = args[:4]
