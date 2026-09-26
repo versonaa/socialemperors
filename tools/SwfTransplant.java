@@ -3,10 +3,12 @@ import com.jpexs.decompiler.flash.abc.ABC;
 import com.jpexs.decompiler.flash.abc.avm2.parser.script.AbcIndexing;
 import com.jpexs.decompiler.flash.abc.avm2.parser.script.ActionScript3Parser;
 import com.jpexs.decompiler.flash.tags.ABCContainerTag;
+import com.jpexs.decompiler.flash.tags.base.RemoveTag;
 import com.jpexs.decompiler.flash.tags.SymbolClassTag;
 import com.jpexs.decompiler.flash.tags.Tag;
 import com.jpexs.decompiler.flash.tags.base.CharacterIdTag;
 import com.jpexs.decompiler.flash.tags.base.CharacterTag;
+import com.jpexs.decompiler.flash.tags.base.PlaceObjectTypeTag;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.FileInputStream;
@@ -92,9 +94,13 @@ public class SwfTransplant {
             newIds.put(copy.getCharacterId(), nextId);
             copy.setCharacterId(nextId++);
             copies.add(copy);
-            // Tags attached to the character (e.g. DefineFontName, DefineScalingGrid)
+            // Definition tags attached to the character (e.g. DefineFontName, CSMSettings).
+            // Not the places of the character inside other sprites: on the root timeline
+            // they would put objects on the stage and break the game.
             for (CharacterIdTag attached : source.getCharacterIdTags(((CharacterTag) tag).getCharacterId())) {
-                if (attached instanceof Tag && !(attached instanceof CharacterTag) && !(attached instanceof SymbolClassTag)) {
+                if (attached instanceof Tag && ((Tag) attached).getTimelined() == source
+                        && !(attached instanceof CharacterTag) && !(attached instanceof SymbolClassTag)
+                        && !(attached instanceof PlaceObjectTypeTag) && !(attached instanceof RemoveTag)) {
                     Tag attachedCopy = ((Tag) attached).cloneTag();
                     attachedCopy.setSwf(target, true);
                     attachedCopy.setTimelined(target);
