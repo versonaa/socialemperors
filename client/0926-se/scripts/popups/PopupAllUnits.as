@@ -262,7 +262,7 @@ package popups
             Base.Player.adjustStatByType(-this.tooltip.cost.value,CostType.CASH);
             _loc3_ = new BuildingReference(_loc2_);
             Base.Main.storeItem(_loc3_,false,false);
-            this.ucm.boughtUnits[_loc2_.id] = true;
+            this.ucm.addUnit(_loc2_.id);
             Base.Commands.addCommand({
                "cmd":Constants.CMD_BUY_STORED_ITEM_CASH,
                "args":[Base.Main.townID,_loc2_.id,this.tooltip.cost.value]

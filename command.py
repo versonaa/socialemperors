@@ -1,6 +1,7 @@
 import copy
 import json
 import math
+import traceback
 
 from sessions import session, save_session, initial_village
 from get_game_config import get_game_config, get_level_from_xp, get_name_from_item_id, get_attribute_from_mission_id, get_xp_from_level, get_attribute_from_item_id, get_item_from_subcat_functional
@@ -46,6 +47,14 @@ def take_from_store(save: dict, map: dict, item_id: int) -> bool:
             gifts.pop()
         return True
     return False
+
+def add_bought_unit(save: dict, item_id: int) -> None:
+    # privateState.boughtUnits: units the player ever had, counted by the unit collections
+    if get_attribute_from_item_id(item_id, "type") != "u":
+        return
+    bought = save["privateState"].setdefault("boughtUnits", [])
+    if item_id not in bought:
+        bought.append(item_id)
 
 def get_magic(magic_id: int) -> dict:
     for magic in get_game_config()["magics"]:
@@ -103,7 +112,12 @@ def command(USERID, data):
     for i, comm in enumerate(commands):
         cmd = comm["cmd"]
         args = comm["args"]
-        do_command(USERID, cmd, args)
+        # A failing command must not lose the rest of the batch: log it and keep going
+        try:
+            do_command(USERID, cmd, args)
+        except Exception:
+            print(f"\n [!] Error in command '{cmd}' {args}:")
+            traceback.print_exc()
     save_session(USERID) # Save session
 
 def do_command(USERID, cmd, args):
@@ -132,6 +146,7 @@ def do_command(USERID, cmd, args):
             xp = int(get_attribute_from_item_id(id, "xp"))
             map["xp"] = map["xp"] + xp
         map["items"] += [[id, x, y, orientation, collected_at_timestamp, level]]
+        add_bought_unit(save, id)
 
     elif cmd == Constant.CMD_BUY_UNIT_WITH_CASH:
         id = args[0]
@@ -145,6 +160,7 @@ def do_command(USERID, cmd, args):
         save["playerInfo"]["cash"] = max(save["playerInfo"]["cash"] - cost, 0)
         map["xp"] = map["xp"] + int(get_attribute_from_item_id(id, "xp"))
         map["items"] += [[id, x, y, 0, timestamp_now(), 0]]
+        add_bought_unit(save, id)
 
     elif cmd == Constant.CMD_COMPLETE_TUTORIAL:
         tutorial_step = args[0]
@@ -176,9 +192,10 @@ def do_command(USERID, cmd, args):
         y = args[1]
         town_id = args[2]
         id = args[3]
-        num_units_contained_when_harvested = args[4]#TODO does this affect multiplier?
-        resource_multiplier = args[5]
-        cash_to_substract = args[6]
+        # Buildings send 7 args; resources (trees, stones...) and social feeds only the first 4
+        num_units_contained_when_harvested = args[4] if len(args) > 4 else 0 #TODO does this affect multiplier?
+        resource_multiplier = args[5] if len(args) > 5 else 1
+        cash_to_substract = args[6] if len(args) > 6 else 0
         print("Collect", str(get_name_from_item_id(id)))
         map = save["maps"][town_id]
         apply_collect(save["playerInfo"], map, id, resource_multiplier)
@@ -220,19 +237,22 @@ def do_command(USERID, cmd, args):
     
     elif cmd == Constant.CMD_COMPLETE_MISSION:
         mission_id = args[0]
-        skipped_with_cash = bool(args[1])
+        skipped_with_cash = len(args) > 1 and bool(args[1]) # the admin panel sends only the id
         print("Complete mission", mission_id, ":", str(get_attribute_from_mission_id(mission_id, "title")))
         if skipped_with_cash:
-            cash_to_substract = 0 # TODO 
+            cash_to_substract = int(get_game_config()["globals"]["PRICE_COMPLETE_GOAL"])
             save["playerInfo"]["cash"] = max(save["playerInfo"]["cash"] - cash_to_substract, 0)
-        save["privateState"]["completedMissions"] += [mission_id]
+        if mission_id not in save["privateState"]["completedMissions"]:
+            save["privateState"]["completedMissions"] += [mission_id]
     
     elif cmd == Constant.CMD_REWARD_MISSION:
         town_id = args[0]
         mission_id = args[1]
         print("Reward mission", mission_id, ":", str(get_attribute_from_mission_id(mission_id, "title")))
-        reward = int(get_attribute_from_mission_id(mission_id, "reward")) # gold
-        save["maps"][town_id]["coins"] += reward   
+        if mission_id in save["privateState"]["rewardedMissions"]:
+            return
+        reward = int(get_attribute_from_mission_id(mission_id, "reward") or 0) # gold
+        save["maps"][town_id]["coins"] += reward
         save["privateState"]["rewardedMissions"] += [mission_id]
     
     elif cmd == Constant.CMD_PUSH_UNIT:
@@ -272,7 +292,7 @@ def do_command(USERID, cmd, args):
         # Remove unit from building
         for item in map["items"]:
             if item[1] == b_x and item[2] == b_y:
-                if len(item) < 7:
+                if len(item) < 7 or unit_id not in item[6]:
                     break
                 item[6].remove(unit_id)
                 break
@@ -596,7 +616,7 @@ def do_command(USERID, cmd, args):
         collected_at_timestamp = timestamp_now()
         level = 0 # TODO 
         orientation = 0
-        map["items"] += [[id, x, y, orientation, collected_at_timestamp, level]]
+        save["maps"][town_id]["items"] += [[unit_id, x, y, orientation, collected_at_timestamp, level]]
 
     elif cmd == Constant.CMD_BUY_SUPER_OFFER_PACK:
         town_id = args[0]
@@ -654,6 +674,30 @@ def do_command(USERID, cmd, args):
         # save["maps"]["lastQuestTimes"] [quest_id] = TODO min (... , duration_sec)
 
         print(f"Ended quest {quest_id}.")
+
+    elif cmd == Constant.CMD_BUY_STORED_ITEM_CASH:
+        town_id = args[0]
+        item_id = args[1]
+        price = int(args[2])
+        print("Buy", str(get_name_from_item_id(item_id)), "for", price, "cash, to storage")
+        save["playerInfo"]["cash"] = max(save["playerInfo"]["cash"] - price, 0)
+        add_to_store(save["maps"][town_id], item_id)
+        add_bought_unit(save, item_id) # counts for its unit collection
+
+    elif cmd == Constant.CMD_UNIT_COLLECTION_COMPLETED:
+        category_id = int(args[0])
+        pState = save["privateState"]
+        completed = pState.setdefault("unitCollectionsCompleted", [])
+        if category_id in completed:
+            return
+        completed.append(category_id)
+        category = get_game_config()["units_collections_categories"].get(str(category_id))
+        print("Unit collection", category_id, "completed")
+        # The client shows the reward unit and adds 1 cash (PopupAllUnits.getCollectionReward)
+        save["playerInfo"]["cash"] += 1
+        if category and category.get("rewards"):
+            add_to_store(save["maps"][0], int(category["rewards"]))
+            add_bought_unit(save, int(category["rewards"]))
 
     elif cmd == Constant.CMD_ADD_COLLECTABLE:
         collection_id = args[0]
