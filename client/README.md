@@ -21,10 +21,10 @@ To change a class that is not here yet, export it from the original SWF with
 FFDec, commit it unmodified first, then edit it. That way the history shows
 exactly what the patch changes.
 
-## 0926-se
+## 1.0.0-se
 
 Based on 0.9.26b (`SocialEmpires0926bsec.swf`), built as
-`SocialEmpires0926-sesec.swf`.
+`SocialEmpires1.0.0-sesec.swf`.
 
 - **Hover collect** (from 1.1.5): resource and XP drops are collected by moving
   the mouse over them instead of clicking. `core/Token.as`
@@ -42,3 +42,6 @@ Based on 0.9.26b (`SocialEmpires0926bsec.swf`), built as
   rotate and store are in the tools menu. The 1.1.5 speed up bar trains the
   unit with cash instead, since training here takes seconds.
   `GUI/RecuadroInfo.as`, labels in `config/patch/training_panel_strings.json`
+- **Unit collections count**: buying a unit from the Collections menu counts
+  it right away (0.9.26b only counted it after a reload).
+  `popups/PopupAllUnits.as`

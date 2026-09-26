@@ -18,9 +18,9 @@ CLIENT_DIR = os.path.join(ROOT, "client")
 TRANSPLANT = os.path.join(ROOT, "tools", "SwfTransplant.java")
 
 PATCHES = {
-    "0926-se": {
+    "1.0.0-se": {
         "base": "SocialEmpires0926bsec.swf",
-        "output": "SocialEmpires0926-sesec.swf",
+        "output": "SocialEmpires1.0.0-sesec.swf",
         # (source swf, class placed next to, [classes to copy])
         "symbols": [
             ("SocialEmpires1.1.5sec.swf", "EP_BARRACKS_MC", ["EP_NewBarracksMC"]),
