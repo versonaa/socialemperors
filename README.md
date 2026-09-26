@@ -1,5 +1,3 @@
-WHY I DID I GET BANNED ON SERVER 😭
-Please contact me on discord @versona
 
 
 ![Social Empires](templates/img/logo.png "Social Empires logo")
