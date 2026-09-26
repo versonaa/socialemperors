@@ -29,6 +29,8 @@ package core
       
       private var startTime:uint;
       
+      public var suffix:String = "";
+      
       public function FauxBar3(param1:IsoElement, param2:String, param3:uint, param4:Number, param5:Number, param6:int, param7:Function, param8:uint = 0)
       {
          super();
@@ -69,7 +71,7 @@ package core
          {
             percentMask.scaleX = Math.min(this.percent,1);
          }
-         TextFieldUtil.setHTML(percentText,Math.min(int(this.percent * 100),100) + "%");
+         TextFieldUtil.setHTML(percentText,Math.min(int(this.percent * 100),100) + "%" + this.suffix);
          if(this.eElement is IsoInteractiveElement && Base.Main.selectedItem == this.eElement.buildingReference)
          {
             Base.Gui.recuadroInfo.refreshLoadBar(this.percent,this.uiTime - _loc2_);

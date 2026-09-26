@@ -56,7 +56,20 @@ def do_command(USERID, cmd, args):
             xp = int(get_attribute_from_item_id(id, "xp"))
             map["xp"] = map["xp"] + xp
         map["items"] += [[id, x, y, orientation, collected_at_timestamp, level]]
-    
+
+    elif cmd == Constant.CMD_BUY_UNIT_WITH_CASH:
+        id = args[0]
+        x = args[1]
+        y = args[2]
+        frame = args[3] # TODO ??
+        town_id = args[4]
+        print("Add", str(get_name_from_item_id(id)), "at", f"({x},{y})", "paid with cash")
+        map = save["maps"][town_id]
+        cost = int(get_attribute_from_item_id(id, "cost_unit_cash"))
+        save["playerInfo"]["cash"] = max(save["playerInfo"]["cash"] - cost, 0)
+        map["xp"] = map["xp"] + int(get_attribute_from_item_id(id, "xp"))
+        map["items"] += [[id, x, y, 0, timestamp_now(), 0]]
+
     elif cmd == Constant.CMD_COMPLETE_TUTORIAL:
         tutorial_step = args[0]
         print("Tutorial step", tutorial_step, "reached.")

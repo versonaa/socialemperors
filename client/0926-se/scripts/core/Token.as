@@ -71,7 +71,7 @@ package core
          this.sourceElement = param1;
          this.randomSpread = param5;
          this.buttonMode = true;
-         this.addEventListener(MouseEvent.MOUSE_OVER,this.onOver);
+         this.addEventListener(MouseEvent.MOUSE_OVER,this.onClick);
          this.addEventListener(MouseEvent.MOUSE_OUT,this.onOut);
          this.addEventListener(MouseEvent.MOUSE_DOWN,this.onClick);
          this.autoClick = Base.Main.bAllowAdminPanel;

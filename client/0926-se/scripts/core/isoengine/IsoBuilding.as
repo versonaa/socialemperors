@@ -57,6 +57,10 @@ package core.isoengine
       
       public var payedWithCash:Boolean = false;
       
+      public static const MAX_TRAINING_QUEUE:int = 5;
+      
+      public var trainingQueue:Array = [];
+      
       private var isGlowing:Boolean = false;
       
       public function IsoBuilding(param1:int = 0, param2:int = 0, param3:BuildingReference = null, param4:int = 1)
@@ -616,6 +620,7 @@ package core.isoengine
          var _loc5_:StaticData = null;
          var _loc8_:Array = null;
          var _loc9_:Array = null;
+         var _loc10_:Boolean = false;
          var _loc6_:int = Base.Player.iPopulationCurrent;
          var _loc7_:int = Base.Player.iPopulationMax;
          _loc5_ = StaticDataLibrary.api.getItem(this.buildingReference.building.trains);
@@ -666,7 +671,7 @@ package core.isoengine
                Base.Main.tutorial.nextStep();
             }
          }
-         if(_loc6_ + _loc5_.population <= _loc7_)
+         if(_loc6_ + IsoBuilding.getTrainingPopulation() + _loc5_.population <= _loc7_)
          {
             if(Base.Iso.checkUnitLimit(this.buildingReference.building.trains))
             {
@@ -674,7 +679,7 @@ package core.isoengine
                {
                   if(param1 || Base.Player.canAfford(_loc3_,CostType.FOOD))
                   {
-                     if(!this.bTrainingUnit)
+                     if(!this.bTrainingUnit || this.canQueueUnit(_loc5_))
                      {
                         if(param1)
                         {
@@ -687,7 +692,7 @@ package core.isoengine
                               _loc9_.push(Constants.COST_XP);
                            }
                            Base.Main.ps.addParticle(new NumberParticle(x * Base.Main.currentZoom + parent.x,y * Base.Main.currentZoom + parent.y,_loc8_,_loc9_));
-                           this.payedWithCash = true;
+                           _loc10_ = true;
                         }
                         else
                         {
@@ -701,10 +706,19 @@ package core.isoengine
                               _loc9_.push(Constants.COST_XP);
                            }
                            Base.Main.ps.addParticle(new NumberParticle(x * Base.Main.currentZoom + parent.x,y * Base.Main.currentZoom + parent.y,_loc8_,_loc9_));
-                           this.payedWithCash = false;
+                           _loc10_ = false;
                         }
-                        this.addProgressBar(Language.getLiteral(Language.AUX_ENTRENANDO),this.uiTrainingTime / 1000,this.OnTrainingTimer);
-                        this.bTrainingUnit = true;
+                        if(this.bTrainingUnit)
+                        {
+                           this.trainingQueue.push(_loc10_);
+                           this.refreshTrainingQueueText();
+                        }
+                        else
+                        {
+                           this.payedWithCash = _loc10_;
+                           this.addProgressBar(Language.getLiteral(Language.AUX_ENTRENANDO),this.uiTrainingTime / 1000,this.OnTrainingTimer);
+                           this.bTrainingUnit = true;
+                        }
                         if(this.pPortrait != null)
                         {
                            this.pPortrait.loadTrainableUnitInfo(this);
@@ -805,6 +819,62 @@ package core.isoengine
                }
             }
          }
+         this.startNextQueuedUnit();
+      }
+      
+      private function canQueueUnit(param1:StaticData) : Boolean
+      {
+         return !Base.Main.tutorialMode && param1.units_limit == 0 && 1 + this.trainingQueue.length < MAX_TRAINING_QUEUE;
+      }
+      
+      private function startNextQueuedUnit() : void
+      {
+         if(this.trainingQueue.length == 0)
+         {
+            return;
+         }
+         if(this.buildingReference == null || this.parent == null)
+         {
+            this.trainingQueue = [];
+            return;
+         }
+         this.payedWithCash = this.trainingQueue.shift();
+         this.addProgressBar(Language.getLiteral(Language.AUX_ENTRENANDO),this.uiTrainingTime / 1000,this.OnTrainingTimer);
+         this.bTrainingUnit = true;
+         this.refreshTrainingQueueText();
+         if(this.pPortrait != null)
+         {
+            this.pPortrait.loadTrainableUnitInfo(this);
+         }
+      }
+      
+      private function refreshTrainingQueueText() : void
+      {
+         if(this.fauxBar is FauxBar3)
+         {
+            FauxBar3(this.fauxBar).suffix = this.trainingQueue.length > 0 ? " +" + this.trainingQueue.length : "";
+         }
+      }
+      
+      public static function getTrainingPopulation() : int
+      {
+         var _loc1_:int = 0;
+         var _loc2_:Object = null;
+         var _loc3_:IsoBuilding = null;
+         var _loc4_:StaticData = null;
+         for each(_loc2_ in Base.Main.buildingArray)
+         {
+            _loc3_ = _loc2_.mc as IsoBuilding;
+            if(_loc3_ != null && _loc3_.bTrainingUnit)
+            {
+               _loc4_ = StaticDataLibrary.api.getItem(_loc2_.building.trains);
+               if(_loc4_ != null)
+               {
+                  _loc1_ += (1 + _loc3_.trainingQueue.length) * _loc4_.population;
+               }
+            }
+         }
+         return _loc1_;
       }
       
       public function Destroy() : void

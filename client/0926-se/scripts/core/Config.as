@@ -3,7 +3,7 @@ package core
    public class Config
    {
       
-      public static const VERSION_NUMBER:String = "0.9.26b";
+      public static const VERSION_NUMBER:String = "0.9.26-se";
       
       public static const VERSION_TEXT:String = "Please! This is supposed to be a happy occasion. Let\'s not bicker and argue over who killed who.";
       
